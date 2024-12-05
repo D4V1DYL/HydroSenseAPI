@@ -6,7 +6,6 @@ import pandas as pd
 from joblib import load
 
 model = load("models/svm_model.pkl")
-print(model.feature_names_in_)
 
 router = APIRouter()
 
@@ -52,7 +51,6 @@ def predict_water_quality(data: WaterData):
         # Make prediction
         prediction = model.predict(input_data)
         prediction_result = int(prediction)
-        print(prediction_result)
 
         # Interpret the prediction
         result = "clean" if prediction_result == 1 else "dirty"
