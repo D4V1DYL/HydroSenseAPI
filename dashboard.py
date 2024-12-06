@@ -26,7 +26,10 @@ class ProductList(BaseModel):
     product_id: str
     product_name: str
     product_description: str
+    product_image: str
     result: str
+    date: str
+    time: str
 
 class ProductHistory(BaseModel):
     product_id: str
@@ -60,47 +63,50 @@ def get_leaderboard(db: Session = Depends(get_db)):
     return leaderboard
 
 
+
+
+
 # Products by Company Endpoint with Latest Result
 @router.get("/company/{company_id}/products", response_model=List[ProductList])
 def get_company_products(company_id: str, db: Session = Depends(get_db)):
-    subquery = (
-        db.query(
-            WaterData.ProductID,
-            func.max(WaterData.Date).label("latest_date")
-        )
-        .join(Product, Product.ProductID == WaterData.ProductID)
-        .filter(Product.CompanyID == company_id)
-        .group_by(WaterData.ProductID)
-        .subquery()
-    )
-    
     products = (
         db.query(
             Product.ProductID.label("product_id"),
             Product.Name.label("product_name"),
             Product.Description.label("product_description"),
-            WaterQuality.Name.label("result")
+            Product.Image.label("product_image"),
+            WaterQuality.Name.label("result"),
+            WaterData.Date.label("date")
         )
         .join(WaterData, WaterData.ProductID == Product.ProductID)
         .join(WaterQualityPrediction, WaterQualityPrediction.WaterDataID == WaterData.WaterDataID)
         .join(WaterQuality, WaterQuality.WaterQualityID == WaterQualityPrediction.WaterQualityID)
-        .join(subquery, (subquery.c.ProductID == WaterData.ProductID) & (subquery.c.latest_date == WaterData.Date))
         .filter(Product.CompanyID == company_id)
-        .distinct(Product.ProductID, WaterData.Date)
-        .order_by(Product.ProductID, desc(WaterData.Date))
+        .order_by(Product.ProductID)
         .all()
     )
     
-    # Filter out duplicates and keep only the latest result for each product
-    unique_products = {}
-    for product in products:
-        if product.product_id not in unique_products:
-            unique_products[product.product_id] = product
-    
-    if not unique_products:
+    if not products:
         raise HTTPException(status_code=404, detail="Company not found or no products available")
     
-    return list(unique_products.values())
+    # Create a list of ProductList objects
+    product_list = []
+    for product in products:
+        date_time = product.date
+        date_str = date_time.strftime("%Y-%m-%d") if date_time else "N/A"
+        time_str = date_time.strftime("%H:%M:%S") if date_time else "N/A"
+        product_list.append(ProductList(
+            product_id=product.product_id,
+            product_name=product.product_name,
+            product_description=product.product_description,
+            product_image=product.product_image or "",
+            result=product.result,
+            date=date_str,
+            time=time_str
+        ))
+
+    return product_list
+
 
 
 # Product History by Company Endpoint

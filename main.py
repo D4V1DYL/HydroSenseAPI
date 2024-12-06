@@ -6,12 +6,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from auth import router as auth_router
 from predict import router as predict_router
 from dashboard import router as dashboard_router
+from product import router as product_router
 
 app = FastAPI()
 
 app.include_router(auth_router, prefix="/auth")
 app.include_router(dashboard_router, prefix="/dashboard")
 app.include_router(predict_router, prefix="/predict")
+app.include_router(product_router, prefix="/product")
 
 # Apply Middleware
 app.middleware("http")(log_requests)
