@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
 from sqlalchemy.orm import Session
 from database import SessionLocal
-from models.models import Product, Company, WaterQualityPrediction, WaterQuality, WaterData, WaterDataDetail, WaterProperty
+from models.models import Product, Company, WaterQualityPrediction, WaterQuality, WaterData, WaterDataDetail, WaterProperty,User
 import cloudinary
 import cloudinary.uploader
 import uuid
@@ -11,6 +11,8 @@ from pydantic import BaseModel
 from typing import List
 import json
 from sqlalchemy import delete
+from auth import get_current_admin_user
+
 
 
 router = APIRouter()
@@ -81,7 +83,8 @@ def create_product_and_predict(
     CompanyID: str = Form(...),
     image: UploadFile = File(...),
     water_data: str = Form(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
 ):
     try:
         # Parse water_data JSON string to dictionary
@@ -183,7 +186,7 @@ def create_product_and_predict(
 
 # Endpoint to predict water quality
 @router.post("/predict/")
-def predict_water_quality(data: WaterDataInputEdit, db: Session = Depends(get_db)):
+def predict_water_quality(data: WaterDataInputEdit, db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
     try:
         # Convert input data to DataFrame
         input_data = pd.DataFrame([{
@@ -259,7 +262,7 @@ def predict_water_quality(data: WaterDataInputEdit, db: Session = Depends(get_db
     
 
 @router.delete("/delete/{product_id}")
-def delete_product(product_id: int, db: Session = Depends(get_db)):
+def delete_product(product_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
     try:
         # Step 1: Delete records from dependent tables
         # Delete WaterQualityPrediction records
