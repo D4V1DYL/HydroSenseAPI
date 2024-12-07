@@ -4,7 +4,7 @@ from sqlalchemy import func
 from database import SessionLocal
 from models.models import Company, Product, WaterQuality, WaterQualityPrediction, WaterData
 from pydantic import BaseModel
-from typing import List
+from typing import List,Optional
 
 router = APIRouter()
 
@@ -18,12 +18,12 @@ def get_db():
 
 # Pydantic Models
 class CompanyLeaderboard(BaseModel):
-    company_id: str
+    company_id: int
     company_name: str
     clean_count: int
 
 class ProductList(BaseModel):
-    product_id: str
+    product_id: int
     product_name: str
     product_description: str
     product_image: str
@@ -32,10 +32,10 @@ class ProductList(BaseModel):
     time: str
 
 class ProductHistory(BaseModel):
-    product_id: str
+    product_id: int
     product_name: str
     product_description: str
-    product_image: str
+    product_image: Optional[str]
     result: str
     date: str
     time: str
