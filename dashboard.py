@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func
+from sqlalchemy import func
 from database import SessionLocal
 from models.models import Company, Product, WaterQuality, WaterQualityPrediction, WaterData
 from pydantic import BaseModel
@@ -69,6 +69,12 @@ def get_leaderboard(db: Session = Depends(get_db)):
 # Products by Company Endpoint with Latest Result
 @router.get("/company/{company_id}/products", response_model=List[ProductList])
 def get_company_products(company_id: str, db: Session = Depends(get_db)):
+    subquery = (
+        db.query(WaterData.ProductID, func.max(WaterData.Date).label("latest_date"))
+        .group_by(WaterData.ProductID)
+        .subquery()
+    )
+
     products = (
         db.query(
             Product.ProductID.label("product_id"),
@@ -76,16 +82,17 @@ def get_company_products(company_id: str, db: Session = Depends(get_db)):
             Product.Description.label("product_description"),
             Product.Image.label("product_image"),
             WaterQuality.Name.label("result"),
-            WaterData.Date.label("date")
+            WaterData.Date.label("date"),
         )
         .join(WaterData, WaterData.ProductID == Product.ProductID)
-        .join(WaterQualityPrediction, WaterQualityPrediction.WaterDataID == WaterData.WaterDataID)
-        .join(WaterQuality, WaterQuality.WaterQualityID == WaterQualityPrediction.WaterQualityID)
+        .join(subquery, (WaterData.ProductID == subquery.c.ProductID) & (WaterData.Date == subquery.c.latest_date))
+        .join(WaterQualityPrediction, WaterQualityPrediction.WaterDataID == WaterData.WaterDataID, isouter=True)
+        .join(WaterQuality, WaterQuality.WaterQualityID == WaterQualityPrediction.WaterQualityID, isouter=True)
         .filter(Product.CompanyID == company_id)
-        .order_by(Product.ProductID)
+        .order_by(Product.ProductID, WaterData.Date)
         .all()
     )
-    
+
     if not products:
         raise HTTPException(status_code=404, detail="Company not found or no products available")
     
@@ -100,7 +107,7 @@ def get_company_products(company_id: str, db: Session = Depends(get_db)):
             product_name=product.product_name,
             product_description=product.product_description,
             product_image=product.product_image or "",
-            result=product.result,
+            result=product.result or "N/A",
             date=date_str,
             time=time_str
         ))
