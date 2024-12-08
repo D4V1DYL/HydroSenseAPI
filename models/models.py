@@ -47,6 +47,7 @@ class Company(Base):
     Email = Column(String(255), nullable=False)
     PhoneNumber = Column(String(20), nullable=False)
     Website = Column(String(255), nullable=True)
+    Image = Column(String, nullable=True)
 
     user_mappings = relationship("UserCompanyMapping", back_populates="company")
     products = relationship("Product", back_populates="company")

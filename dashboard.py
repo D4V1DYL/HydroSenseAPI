@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status,Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import SessionLocal
@@ -6,9 +6,15 @@ from models.models import Company, Product, WaterQuality, WaterQualityPrediction
 from pydantic import BaseModel
 from typing import List,Optional
 from models.models import User
-from auth import get_current_user    
+from auth import get_current_user,get_user_company_id    
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 router = APIRouter()
+
+# Initialize the Limiter
+limiter = Limiter(key_func=get_remote_address)
+
 
 # Dependency to get DB session
 def get_db():
@@ -44,13 +50,15 @@ class ProductHistory(BaseModel):
 
 # Leaderboard Endpoint
 @router.get("/leaderboard", response_model=List[CompanyLeaderboard])
-def get_leaderboard(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+@limiter.limit("50/minute")
+def get_leaderboard(request: Request,db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     clean_quality_id = db.query(WaterQuality.WaterQualityID).filter(WaterQuality.Name == "Clean").scalar_subquery()
     
     leaderboard = (
         db.query(
             Company.CompanyID.label("company_id"),
             Company.Name.label("company_name"),
+            Company.Image.label("company_image"),
             func.count(WaterQualityPrediction.WaterQualityPredictionID).label("clean_count")
         )
         .join(Product, Product.CompanyID == Company.CompanyID)
@@ -70,7 +78,8 @@ def get_leaderboard(db: Session = Depends(get_db), current_user: User = Depends(
 
 # Products by Company Endpoint with Latest Result
 @router.get("/company/{company_id}/products", response_model=List[ProductList])
-def get_company_products(company_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+@limiter.limit("50/minute")
+def get_company_products(request: Request,company_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     subquery = (
         db.query(WaterData.ProductID, func.max(WaterData.Date).label("latest_date"))
         .group_by(WaterData.ProductID)
@@ -119,8 +128,12 @@ def get_company_products(company_id: str, db: Session = Depends(get_db), current
 
 
 # Product History by Company Endpoint
-@router.get("/company/{company_id}/history", response_model=List[ProductHistory])
-def get_product_history(company_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+@router.get("/company/history", response_model=List[ProductHistory])
+@limiter.limit("50/minute")
+def get_product_history(request: Request,db: Session = Depends(get_db), current_user: User = Depends(get_current_user), company_id: int = Depends(get_user_company_id)):
+    if company_id is None:
+        raise HTTPException(status_code=400, detail="User does not belong to any company")
+
     history = (
         db.query(
             Product.ProductID.label("product_id"),
@@ -149,7 +162,7 @@ def get_product_history(company_id: str, db: Session = Depends(get_db), current_
         date_str = date_time.strftime("%Y-%m-%d")
         time_str = date_time.strftime("%I:%M %p")
         formatted_history.append(ProductHistory(
-            product_id = record.product_id,
+            product_id=record.product_id,
             product_name=record.product_name,
             product_description=record.product_description,
             product_image=record.product_image,

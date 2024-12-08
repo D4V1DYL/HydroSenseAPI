@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form, Request
 from sqlalchemy.orm import Session
 from database import SessionLocal
 from models.models import Product, Company, WaterQualityPrediction, WaterQuality, WaterData, WaterDataDetail, WaterProperty,User
@@ -11,7 +11,9 @@ from pydantic import BaseModel
 from typing import List
 import json
 from sqlalchemy import delete
-from auth import get_current_admin_user
+from auth import get_current_admin_user,get_user_company_id
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 
 
@@ -26,6 +28,9 @@ cloudinary.config(
 
 # Load the water quality prediction model
 model = load("models/svm_model.pkl")
+
+# Initialize the Limiter
+limiter = Limiter(key_func=get_remote_address)
 
 # Dependency to get DB session
 def get_db():
@@ -77,27 +82,30 @@ def upload_image_to_cloudinary(file: UploadFile):
 
 # Endpoint to create product and predict water quality in one request
 @router.post("/save/")
+@limiter.limit("50/minute")
 def create_product_and_predict(
+    request:Request,
     Name: str = Form(...),
     Description: str = Form(...),
-    CompanyID: str = Form(...),
     image: UploadFile = File(...),
     water_data: str = Form(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user)
+    current_user: User = Depends(get_current_admin_user),
+    company_id: int = Depends(get_user_company_id)
 ):
     try:
+        if company_id is None:
+            raise HTTPException(status_code=400, detail="User does not belong to any company")
+
         # Parse water_data JSON string to dictionary
         water_data_dict = json.loads(water_data)
         water_data_input = WaterDataInput(**water_data_dict)
 
         # Step 1: Create Product
         # Check if the company exists
-        company = db.query(Company).filter(Company.CompanyID == CompanyID).first()
+        company = db.query(Company).filter(Company.CompanyID == company_id).first()
         if not company:
             raise HTTPException(status_code=404, detail="Company not found")
-
-        # Generate a unique ProductID
 
         # Upload image to Cloudinary
         image_url = upload_image_to_cloudinary(image)
@@ -107,7 +115,7 @@ def create_product_and_predict(
             Name=Name,
             Description=Description,
             Image=image_url,
-            CompanyID=CompanyID
+            CompanyID=company_id
         )
         db.add(new_product)
         db.commit()
@@ -186,7 +194,8 @@ def create_product_and_predict(
 
 # Endpoint to predict water quality
 @router.post("/predict/")
-def predict_water_quality(data: WaterDataInputEdit, db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
+@limiter.limit("50/minute")
+def predict_water_quality(request:Request,data: WaterDataInputEdit, db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
     try:
         # Convert input data to DataFrame
         input_data = pd.DataFrame([{
@@ -262,7 +271,8 @@ def predict_water_quality(data: WaterDataInputEdit, db: Session = Depends(get_db
     
 
 @router.delete("/delete/{product_id}")
-def delete_product(product_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
+@limiter.limit("50/minute")
+def delete_product(request:Request,product_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)):
     try:
         # Step 1: Delete records from dependent tables
         # Delete WaterQualityPrediction records
