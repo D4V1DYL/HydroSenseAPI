@@ -74,22 +74,7 @@ class UserResponse(BaseModel):
     class Config:
         orm_mode = True
 
-class AssignRole(BaseModel):
-    user_id: int
-    role: int
 
-class AssignCompany(BaseModel):
-    user_id: int
-    company_id: int
-
-class CompanyCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
-    address: str
-    email: EmailStr
-    phone_number: str
-    website: Optional[str] = None
-    image: Optional[UploadFile] = None
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
@@ -206,70 +191,3 @@ def read_users_me(request: Request,current_user: User = Depends(get_current_user
         role=current_user.Role,
         company_id=company_id
     )
-
-# Assign Role to User Endpoint
-@router.post("/assign-role", status_code=status.HTTP_200_OK)
-@limiter.limit("50/minute")
-def assign_role(request: Request,assign_role: AssignRole, db: Session = Depends(get_db), current_user: User = Depends(get_current_super_admin_user)):
-    user = db.query(User).filter(User.UserID == assign_role.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    user.Role = assign_role.role
-    db.commit()
-    return {"message": "Role assigned successfully"}
-
-# Assign Company to User Endpoint
-@router.post("/assign-company", status_code=status.HTTP_200_OK)
-@limiter.limit("50/minute")
-def assign_company(request: Request,assign_company: AssignCompany, db: Session = Depends(get_db), current_user: User = Depends(get_current_super_admin_user)):
-    user = db.query(User).filter(User.UserID == assign_company.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    company = db.query(Company).filter(Company.CompanyID == assign_company.company_id).first()
-    if not company:
-        raise HTTPException(status_code=404, detail="Company not found")
-    user_company_mapping = db.query(UserCompanyMapping).filter(UserCompanyMapping.UserID == assign_company.user_id).first()
-    if user_company_mapping:
-        user_company_mapping.CompanyID = assign_company.company_id
-    else:
-        new_mapping = UserCompanyMapping(UserID=assign_company.user_id, CompanyID=assign_company.company_id)
-        db.add(new_mapping)
-    db.commit()
-    return {"message": "Company assigned successfully"}
-
-# Create Company Endpoint
-@router.post("/create-company", status_code=status.HTTP_201_CREATED)
-@limiter.limit("50/minute")
-def create_company(
-    request: Request,
-    name: str = Form(...),
-    description: Optional[str] = Form(None),
-    address: str = Form(...),
-    email: EmailStr = Form(...),
-    phone_number: str = Form(...),
-    website: Optional[str] = Form(None),
-    image: Optional[UploadFile] = File(None),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_super_admin_user)
-):
-    try:
-        image_url = None
-        if image:
-            result = cloudinary.uploader.upload(image.file, public_id=f"company_images/{uuid.uuid4()}")
-            image_url = result['secure_url']
-
-        new_company = Company(
-            Name=name,
-            Description=description,
-            Address=address,
-            Email=email,
-            PhoneNumber=phone_number,
-            Website=website,
-            Image=image_url
-        )
-        db.add(new_company)
-        db.commit()
-        db.refresh(new_company)
-        return {"message": "Company created successfully", "company": new_company}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))

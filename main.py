@@ -10,6 +10,7 @@ from slowapi.errors import RateLimitExceeded
 from auth import router as auth_router
 from dashboard import router as dashboard_router
 from product import router as product_router
+from superadmin import router as superadmin_router
 
 app = FastAPI()
 
@@ -24,6 +25,8 @@ app.add_middleware(SlowAPIMiddleware)
 app.include_router(auth_router, prefix="/auth")
 app.include_router(dashboard_router, prefix="/dashboard")
 app.include_router(product_router, prefix="/product")
+app.include_router(superadmin_router, prefix="/superadmin")
+
 
 # Apply Middleware
 app.middleware("https")(log_requests)

@@ -20,7 +20,8 @@ def seed_data():
             # Seed roles
             roles = [
                 Role(Name="Admin", Description="Administrator role"),
-                Role(Name="User", Description="Regular user role")
+                Role(Name="User", Description="Regular user role"),
+                Role(Name="Super Admin", Description="Super administrator role")
             ]
             for role in roles:
                 if not session.query(Role).filter_by(Name=role.Name).first():
