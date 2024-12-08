@@ -38,8 +38,9 @@ def seed_data():
 
             # Seed users
             users = [
-                User(FirstName="John", LastName="Doe", Email="john.doe@example.com", Password="password", Role=1),
-                User(FirstName="Jane", LastName="Doe", Email="jane.doe@example.com", Password="password", Role=2)
+                User(FirstName="John", LastName="Doe", Email="john.doe@example.com", Password="$2a$12$9t55.m5D7S/Ymh5LCVmFbegJYnPID.mXtVKTxLc.sqppuF54Batju", Role=1),
+                User(FirstName="Jane", LastName="Doe", Email="jane.doe@example.com", Password="$2a$12$9t55.m5D7S/Ymh5LCVmFbegJYnPID.mXtVKTxLc.sqppuF54Batju", Role=2),
+                User(FirstName="Super", LastName="Admin", Email="Admin@superadmin.com", Password="$2a$12$cCDUDJBl6xVSKtGgEA/JDO316rCMjfYMiKR.MEqmD0lua949xpIf6", Role=3)
             ]
             for user in users:
                 if not session.query(User).filter_by(Email=user.Email).first():
