@@ -149,7 +149,7 @@ def register_user(request: Request,user: UserCreate, db: Session = Depends(get_d
         LastName=user.last_name,
         Email=user.email,
         Password=hashed_password,
-        Role=None  # Set Role to None or a default value if needed
+        Role=2  # Set Role to None or a default value if needed
     )
     db.add(db_user)
     db.commit()
@@ -191,3 +191,17 @@ def read_users_me(request: Request,current_user: User = Depends(get_current_user
         role=current_user.Role,
         company_id=company_id
     )
+
+# Check Token Validity Endpoint
+@router.get("/check-token")
+def check_token_validity(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        verify_token(token, credentials_exception)
+        return {"message": "Token is valid"}
+    except HTTPException as e:
+        raise e
