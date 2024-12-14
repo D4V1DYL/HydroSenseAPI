@@ -4,7 +4,7 @@ from database import Base
 from models.models import Role, User, Company, Product, WaterProperty, WaterData, WaterDataDetail, WaterQuality, WaterQualityPrediction, UserCompanyMapping
 
 # Database URL
-DATABASE_URL = "mysql+mysqlconnector://david:admin123@localhost:3306/hydrosense"
+DATABASE_URL = "mysql+mysqlconnector://wasq4731_admin:I^F&tgK&GTCR6U%@103.247.8.36:3306/wasq4731_Hydrosense"
 
 # Create the database engine
 engine = create_engine(DATABASE_URL)
