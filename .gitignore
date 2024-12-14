@@ -9,3 +9,4 @@ __pycache__/main.cpython-312.pyc
 /__pycache__
 
 .vercel
+*.pyc
