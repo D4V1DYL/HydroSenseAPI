@@ -1,0 +1,42 @@
+name: Deploy to FTP and Run Uvicorn
+
+on:
+  push:
+    branches:
+      - Production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Zip hydrosense-api folder
+      run: zip -r hydrosense-api.zip hydrosense-api
+
+    - name: Upload to FTP server
+      uses: sebastianpopp/ftp-action@v1
+      with:
+        host: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        localFile: hydrosense-api.zip
+        remoteFile: /home/fyjfoplu/api.hydrosense.nextora.my.id/hydrosense-api.zip
+
+    - name: Extract files on FTP server
+      run: |
+        sshpass -p ${{ secrets.FTP_PASSWORD }} ssh ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} "unzip /home/fyjfoplu/api.hydrosense.nextora.my.id/hydrosense-api.zip -d /home/fyjfoplu/api.hydrosense.nextora.my.id/"
+
+    - name: Move extracted files to outer folder
+      run: |
+        sshpass -p ${{ secrets.FTP_PASSWORD }} ssh ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} "mv /home/fyjfoplu/api.hydrosense.nextora.my.id/hydrosense-api/* /home/fyjfoplu/api.hydrosense.nextora.my.id/"
+
+    - name: Delete extracted folder
+      run: |
+        sshpass -p ${{ secrets.FTP_PASSWORD }} ssh ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} "rm -rf /home/fyjfoplu/api.hydrosense.nextora.my.id/hydrosense-api"
+
+    - name: Run Uvicorn
+      run: |
+        sshpass -p ${{ secrets.FTP_PASSWORD }} ssh ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} "source /home/fyjfoplu/virtualenv/api.hydrosense.nextora.my.id/3.10/bin/activate && cd /home/fyjfoplu/api.hydrosense.nextora.my.id && nohup uvicorn main:app --host 0.0.0.0 --port 8000 &"
