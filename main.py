@@ -38,7 +38,7 @@ app.add_middleware(
 )
 
 # Health Check
-@app.get("/")
+@app.get("/api")
 @limiter.limit("50/minute")
 async def root(request: Request):
     return {"message": "AI REST API is running"}

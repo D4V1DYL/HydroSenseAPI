@@ -48,12 +48,32 @@ class ProductHistory(BaseModel):
     date: str
     time: str
 
+class CompanyResponse(BaseModel):
+    company_id: int
+    name: str
+    description: Optional[str]
+    address: str
+    email: str
+    phone_number: str
+    website: Optional[str]
+    image: Optional[str]
+
 # Leaderboard Endpoint
 @router.get("/leaderboard", response_model=List[CompanyLeaderboard])
 @limiter.limit("50/minute")
-def get_leaderboard(request: Request,db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_leaderboard(request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     clean_quality_id = db.query(WaterQuality.WaterQualityID).filter(WaterQuality.Name == "Clean").scalar_subquery()
     
+    # Subquery to get the latest WaterDataID for each product
+    latest_water_data_subquery = (
+        db.query(
+            WaterData.ProductID,
+            func.max(WaterData.Date).label("latest_date")
+        )
+        .group_by(WaterData.ProductID)
+        .subquery()
+    )
+
     leaderboard = (
         db.query(
             Company.CompanyID.label("company_id"),
@@ -63,13 +83,14 @@ def get_leaderboard(request: Request,db: Session = Depends(get_db), current_user
         )
         .join(Product, Product.CompanyID == Company.CompanyID)
         .join(WaterData, WaterData.ProductID == Product.ProductID)
+        .join(latest_water_data_subquery, (latest_water_data_subquery.c.ProductID == WaterData.ProductID) & (latest_water_data_subquery.c.latest_date == WaterData.Date))
         .join(WaterQualityPrediction, WaterQualityPrediction.WaterDataID == WaterData.WaterDataID)
         .filter(WaterQualityPrediction.WaterQualityID == clean_quality_id)
-        .group_by(Company.CompanyID, Company.Name)
+        .group_by(Company.CompanyID, Company.Name, Company.Image)
         .order_by(func.count(WaterQualityPrediction.WaterQualityPredictionID).desc())
         .all()
     )
-    
+
     return leaderboard
 
 
@@ -172,3 +193,23 @@ def get_product_history(request: Request,db: Session = Depends(get_db), current_
         ))
     
     return formatted_history
+
+
+# Get Company by ID Endpoint
+@router.get("/companies/{company_id}", response_model=CompanyResponse)
+@limiter.limit("50/minute")
+def get_company_by_id(request: Request, company_id: int, db: Session = Depends(get_db),  current_user: User = Depends(get_current_user)):
+    company = db.query(Company).filter(Company.CompanyID == company_id).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    return CompanyResponse(
+        company_id=company.CompanyID,
+        name=company.Name,
+        description=company.Description,
+        address=company.Address,
+        email=company.Email,
+        phone_number=company.PhoneNumber,
+        website=company.Website,
+        image=company.Image
+    )
