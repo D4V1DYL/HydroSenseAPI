@@ -17,13 +17,13 @@ jobs:
       run: zip -r hydrosense-api.zip hydrosense-api
 
     - name: Upload to FTP server
-      uses: sebastianpopp/ftp-action@v1
+      uses: SamKirkland/FTP-Deploy-Action@4.3.0
       with:
-        host: ${{ secrets.FTP_SERVER }}
+        server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        localFile: hydrosense-api.zip
-        remoteFile: /home/fyjfoplu/api.hydrosense.nextora.my.id/hydrosense-api.zip
+        local-dir: ./hydrosense-api.zip
+        server-dir: /home/fyjfoplu/api.hydrosense.nextora.my.id/
 
     - name: Extract files on FTP server
       run: |
