@@ -3,7 +3,7 @@ name: Deploy to FTP and Run Uvicorn
 on:
   push:
     branches:
-      - Production
+      - production
 
 jobs:
   deploy:
